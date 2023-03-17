@@ -189,6 +189,7 @@ class AnnotationBuilder:
     @staticmethod
     def rectangle(
         rect: Union[RectangleObject, Tuple[float, float, float, float]],
+        rectangle_color: Optional[str] = None,
         interiour_color: Optional[str] = None,
     ) -> DictionaryObject:
         """
@@ -212,6 +213,11 @@ class AnnotationBuilder:
                 NameObject("/Rect"): RectangleObject(rect),
             }
         )
+
+        if rectangle_color:
+            square_obj[NameObject("/C")] = ArrayObject(
+                [FloatObject(n) for n in hex_to_rgb(rectangle_color)]
+            )
 
         if interiour_color:
             square_obj[NameObject("/IC")] = ArrayObject(
