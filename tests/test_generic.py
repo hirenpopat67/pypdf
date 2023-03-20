@@ -380,17 +380,22 @@ def test_dictionaryobject_read_from_stream_stream_no_newline():
 
 
 @pytest.mark.parametrize(("strict"), [(True), (False)])
-def test_dictionaryobject_read_from_stream_stream_no_stream_length(strict):
-    stream = BytesIO(b"<< /S /GoTo >>stream\n")
+def test_dictionaryobject_read_from_stream_stream_no_stream_length(strict, caplog):
+    stream = BytesIO(b"<< /S /GoTo >>stream\n123456789endstream abcd")
 
     class Tst:  # to replace pdf
         strict = False
 
     pdf = Tst()
     pdf.strict = strict
-    with pytest.raises(PdfReadError) as exc:
-        DictionaryObject.read_from_stream(stream, pdf)
-    assert exc.value.args[0] == "Stream length not defined"
+    if strict:
+        with pytest.raises(PdfReadError) as exc:
+            DictionaryObject.read_from_stream(stream, pdf)
+        assert exc.value.args[0] == "Stream length not defined"
+    else:
+        o = DictionaryObject.read_from_stream(stream, pdf)
+        assert "Stream length not defined" in caplog.text
+        assert o.get_data() == b"123456789"
 
 
 @pytest.mark.parametrize(
@@ -764,6 +769,34 @@ def test_annotation_builder_polygon():
     assert exc.value.args[0] == "A polygon needs at least 1 vertex with two coordinates"
 
     annotation = AnnotationBuilder.polygon(
+        vertices=[(50, 550), (200, 650), (70, 750), (50, 700)],
+    )
+    writer.add_annotation(0, annotation)
+
+    # Assert: You need to inspect the file manually
+    target = "annotated-pdf.pdf"
+    with open(target, "wb") as fp:
+        writer.write(fp)
+
+    Path(target).unlink()  # comment this out for manual inspection
+
+
+def test_annotation_builder_polyline():
+    # Arrange
+    pdf_path = RESOURCE_ROOT / "crazyones.pdf"
+    reader = PdfReader(pdf_path)
+    page = reader.pages[0]
+    writer = PdfWriter()
+    writer.add_page(page)
+
+    # Act
+    with pytest.raises(ValueError) as exc:
+        AnnotationBuilder.polyline(
+            vertices=[],
+        )
+    assert exc.value.args[0] == "A polygon needs at least 1 vertex with two coordinates"
+
+    annotation = AnnotationBuilder.polyline(
         vertices=[(50, 550), (200, 650), (70, 750), (50, 700)],
     )
     writer.add_annotation(0, annotation)
