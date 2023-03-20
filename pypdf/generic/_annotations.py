@@ -227,6 +227,19 @@ class AnnotationBuilder:
         return square_obj
 
     @staticmethod
+    def set_border_color(annotation: DictionaryObject, border_color: str):
+        """
+        Set the border color of a PDF annotation.
+        Args:
+            annotation: The PDF annotation to modify.
+            border_color: The color of the border in hex string format (e.g. "#FF0000" for red).
+        """
+        annotation[NameObject("/C")] = ArrayObject(
+            [FloatObject(n) for n in hex_to_rgb(border_color)]
+        )
+        
+
+    @staticmethod
     def ellipse(
         rect: Union[RectangleObject, Tuple[float, float, float, float]],
         interiour_color: Optional[str] = None,
