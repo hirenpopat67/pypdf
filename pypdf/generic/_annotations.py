@@ -12,6 +12,11 @@ from ._fit import DEFAULT_FIT, Fit
 from ._rectangle import RectangleObject
 from ._utils import hex_to_rgb
 
+try:
+    from PIL import ImageColor as ImageColorLoaded
+except ImportError:
+    ImageColorLoaded = None
+
 
 def _get_bounding_rectangle(vertices: List[Tuple[float, float]]) -> RectangleObject:
     x_min, y_min = vertices[0][0], vertices[0][1]
@@ -23,6 +28,28 @@ def _get_bounding_rectangle(vertices: List[Tuple[float, float]]) -> RectangleObj
         y_max = min(y_max, y)
     rect = RectangleObject((x_min, y_min, x_max, y_max))
     return rect
+
+
+class AnnotationObject(DictionaryObject):
+    def set_border_color(
+        self,
+        border_color: Union[ArrayObject, List[float], Tuple[float, float, float], str],
+    ) -> "AnnotationObject":
+        """
+        Set the border color of a PDF annotation.
+
+        Args:
+            annotation: The PDF annotation to modify.
+            border_color: The color of the border in hex string format (e.g. "#FF0000" for red).
+        """
+        if isinstance(border_color, str):
+            if ImageColorLoaded is None:
+                raise ImportError("PIL required but not installed")
+            border_color = ImageColorLoaded.getrgb(border_color)
+        if isinstance(border_color, (list, tuple)):
+            border_color = ArrayObject([FloatObject(n) for n in border_color[:3]])
+        self[NameObject("/C")] = border_color
+        return self
 
 
 class AnnotationBuilder:
@@ -44,7 +71,7 @@ class AnnotationBuilder:
         text: str,
         open: bool = False,
         flags: int = 0,
-    ) -> DictionaryObject:
+    ) -> AnnotationObject:
         """
         Add text annotation.
 
@@ -59,7 +86,7 @@ class AnnotationBuilder:
             A dictionary object representing the annotation.
         """
         # TABLE 8.23 Additional entries specific to a text annotation
-        text_obj = DictionaryObject(
+        text_obj = AnnotationObject(
             {
                 NameObject("/Type"): NameObject("/Annot"),
                 NameObject("/Subtype"): NameObject("/Text"),
@@ -82,7 +109,7 @@ class AnnotationBuilder:
         font_color: str = "000000",
         border_color: Optional[str] = "000000",
         background_color: Optional[str] = "ffffff",
-    ) -> DictionaryObject:
+    ) -> AnnotationObject:
         """
         Add text in a rectangle to a page.
 
@@ -117,7 +144,7 @@ class AnnotationBuilder:
                 default_appearance_string = f"{default_appearance_string}{st} "
             default_appearance_string = f"{default_appearance_string}rg"
 
-        free_text = DictionaryObject()
+        free_text = AnnotationObject()
         free_text.update(
             {
                 NameObject("/Type"): NameObject("/Annot"),
@@ -131,7 +158,7 @@ class AnnotationBuilder:
         )
         if border_color is None:
             # Border Style
-            free_text[NameObject("/BS")] = DictionaryObject(
+            free_text[NameObject("/BS")] = AnnotationObject(
                 {
                     # width of 0 means no border
                     NameObject("/W"): NumberObject(0)
@@ -150,7 +177,7 @@ class AnnotationBuilder:
         rect: Union[RectangleObject, Tuple[float, float, float, float]],
         text: str = "",
         title_bar: str = "",
-    ) -> DictionaryObject:
+    ) -> AnnotationObject:
         """
         Draw a line on the PDF.
 
@@ -166,7 +193,7 @@ class AnnotationBuilder:
         Returns:
             A dictionary object representing the annotation.
         """
-        line_obj = DictionaryObject(
+        line_obj = AnnotationObject(
             {
                 NameObject("/Type"): NameObject("/Annot"),
                 NameObject("/Subtype"): NameObject("/Line"),
@@ -201,7 +228,7 @@ class AnnotationBuilder:
     @staticmethod
     def polyline(
         vertices: List[Tuple[float, float]],
-    ) -> DictionaryObject:
+    ) -> AnnotationObject:
         """
         Draw a polyline on the PDF.
 
@@ -217,7 +244,7 @@ class AnnotationBuilder:
         for x, y in vertices:
             coord_list.append(NumberObject(x))
             coord_list.append(NumberObject(y))
-        polyline_obj = DictionaryObject(
+        polyline_obj = AnnotationObject(
             {
                 NameObject("/Type"): NameObject("/Annot"),
                 NameObject("/Subtype"): NameObject("/PolyLine"),
@@ -231,7 +258,7 @@ class AnnotationBuilder:
     def rectangle(
         rect: Union[RectangleObject, Tuple[float, float, float, float]],
         interiour_color: Optional[str] = None,
-    ) -> DictionaryObject:
+    ) -> AnnotationObject:
         """
         Draw a rectangle on the PDF.
 
@@ -246,7 +273,7 @@ class AnnotationBuilder:
         Returns:
             A dictionary object representing the annotation.
         """
-        square_obj = DictionaryObject(
+        square_obj = AnnotationObject(
             {
                 NameObject("/Type"): NameObject("/Annot"),
                 NameObject("/Subtype"): NameObject("/Square"),
@@ -265,7 +292,7 @@ class AnnotationBuilder:
     def ellipse(
         rect: Union[RectangleObject, Tuple[float, float, float, float]],
         interiour_color: Optional[str] = None,
-    ) -> DictionaryObject:
+    ) -> AnnotationObject:
         """
         Draw a rectangle on the PDF.
 
@@ -280,7 +307,7 @@ class AnnotationBuilder:
         Returns:
             A dictionary object representing the annotation.
         """
-        ellipse_obj = DictionaryObject(
+        ellipse_obj = AnnotationObject(
             {
                 NameObject("/Type"): NameObject("/Annot"),
                 NameObject("/Subtype"): NameObject("/Circle"),
@@ -296,7 +323,7 @@ class AnnotationBuilder:
         return ellipse_obj
 
     @staticmethod
-    def polygon(vertices: List[Tuple[float, float]]) -> DictionaryObject:
+    def polygon(vertices: List[Tuple[float, float]]) -> AnnotationObject:
         if len(vertices) == 0:
             raise ValueError("A polygon needs at least 1 vertex with two coordinates")
 
@@ -304,7 +331,7 @@ class AnnotationBuilder:
         for x, y in vertices:
             coord_list.append(NumberObject(x))
             coord_list.append(NumberObject(y))
-        obj = DictionaryObject(
+        obj = AnnotationObject(
             {
                 NameObject("/Type"): NameObject("/Annot"),
                 NameObject("/Subtype"): NameObject("/Polygon"),
@@ -322,7 +349,7 @@ class AnnotationBuilder:
         url: Optional[str] = None,
         target_page_index: Optional[int] = None,
         fit: Fit = DEFAULT_FIT,
-    ) -> DictionaryObject:
+    ) -> AnnotationObject:
         """
         Add a link to the document.
 
@@ -373,7 +400,7 @@ class AnnotationBuilder:
         else:
             border_arr = [NumberObject(0)] * 3
 
-        link_obj = DictionaryObject(
+        link_obj = AnnotationObject(
             {
                 NameObject("/Type"): NameObject("/Annot"),
                 NameObject("/Subtype"): NameObject("/Link"),
@@ -382,7 +409,7 @@ class AnnotationBuilder:
             }
         )
         if is_external:
-            link_obj[NameObject("/A")] = DictionaryObject(
+            link_obj[NameObject("/A")] = AnnotationObject(
                 {
                     NameObject("/S"): NameObject("/URI"),
                     NameObject("/Type"): NameObject("/Action"),
@@ -391,7 +418,7 @@ class AnnotationBuilder:
             )
         if is_internal:
             # This needs to be updated later!
-            dest_deferred = DictionaryObject(
+            dest_deferred = AnnotationObject(
                 {
                     "target_page_index": NumberObject(target_page_index),
                     "fit": NameObject(fit.fit_type),
@@ -400,15 +427,3 @@ class AnnotationBuilder:
             )
             link_obj[NameObject("/Dest")] = dest_deferred
         return link_obj
-
-    @staticmethod
-    def set_border_color(annotation: DictionaryObject, border_color: str):
-        """
-        Set the border color of a PDF annotation.
-        Args:
-            annotation: The PDF annotation to modify.
-            border_color: The color of the border in hex string format (e.g. "#FF0000" for red).
-        """
-        annotation[NameObject("/C")] = ArrayObject(
-            [FloatObject(n) for n in hex_to_rgb(border_color)]
-        )
