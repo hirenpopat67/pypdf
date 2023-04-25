@@ -293,6 +293,8 @@ class AnnotationBuilder:
                 specifying the clickable rectangular area
             interiour_color: None or hex-string for the color, e.g. cdcdcd
                 If None is used, the interiour is transparent.
+            color: None or hex-string for the color, e.g. cdcdcd
+                If None is used, the color is black.
 
         Returns:
             A dictionary object representing the annotation.
